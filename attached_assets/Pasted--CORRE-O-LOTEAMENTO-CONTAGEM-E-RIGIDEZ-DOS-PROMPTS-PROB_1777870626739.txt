@@ -1,0 +1,142 @@
+# CORREÇÃO — LOTEAMENTO, CONTAGEM E RIGIDEZ DOS PROMPTS
+
+## PROBLEMAS
+
+1. Nem todos os arquivos aparecem (65 → 20/36)
+2. Contador global fica em 0
+3. Lotes mal distribuídos
+4. Máximo de 3 lotes sendo exibidos por análise (limitador indevido)
+
+---
+
+## OBJETIVO
+
+* Exibir 100% dos arquivos
+* Corrigir contador
+* Remover limite de 3 lotes
+* Tornar prompts mais rígidos e determinísticos
+
+---
+
+## REGRAS OBRIGATÓRIAS
+
+### 1. REMOVER LIMITE DE LOTES
+
+* NÃO pode existir limite fixo de lotes (ex: 3)
+* Quantidade de lotes deve ser dinâmica
+* Baseada no volume e complexidade dos arquivos
+
+---
+
+### 2. INTEGRIDADE TOTAL
+
+```ts
+totalArquivos === soma(lotes.files.length)
+```
+
+Se falhar:
+→ erro crítico
+
+---
+
+### 3. CONTADOR GLOBAL
+
+```ts
+setTotalFiles(
+  lotes.reduce((acc, l) => acc + l.files.length, 0)
+)
+```
+
+---
+
+### 4. VALIDAÇÃO DE LEITURA (REGRA DE OURO)
+
+A IA DEVE:
+
+* Ler 100% dos arquivos
+* Ler linha por linha
+* Marcar explicitamente todos os arquivos processados
+
+Se algum arquivo não for listado:
+→ considerar FALHA GRAVE
+
+---
+
+### 5. PENALIDADE DE PROMPT
+
+Adicionar regra explícita:
+
+* Se a IA omitir arquivos
+* Se não marcar arquivos lidos
+* Se gerar menos lotes do que necessário
+
+→ saída é considerada inválida
+→ deve refazer internamente antes de responder
+
+---
+
+### 6. REVISÃO DOS PROMPTS
+
+* Verificar se existem regras vagas ou flexíveis
+* Substituir por regras determinísticas
+* Garantir:
+
+  * leitura completa
+  * cobertura total
+  * rastreabilidade
+
+---
+
+### 7. PARSER
+
+* Garantir extração de TODOS os arquivos
+* Nenhum bloco pode ser ignorado
+* Falha → erro explícito
+
+---
+
+### 8. LOTEAMENTO
+
+Agrupar por:
+
+* tipo de problema
+* domínio do sistema
+* dependências
+
+Cada arquivo em apenas 1 lote.
+
+---
+
+### 9. OUTPUT DA ANÁLISE (IMPORTANTE)
+
+* No chat: saída MINIMALISTA
+
+* Apenas resumo por lote
+
+* Detalhes completos:
+  → apenas ao clicar no lote
+  → ou nos arquivos salvos (.md)
+
+NÃO duplicar informação detalhada no chat.
+
+---
+
+## RESULTADO ESPERADO
+
+* 65 arquivos → 65 exibidos
+* múltiplos lotes (sem limite artificial)
+* contador correto
+* prompts rígidos
+* análise completa garantida
+
+---
+
+## INÍCIO
+
+Corrigir:
+
+→ limite de lotes
+→ leitura incompleta
+→ parsing
+→ contagem
+→ rigidez dos prompts
