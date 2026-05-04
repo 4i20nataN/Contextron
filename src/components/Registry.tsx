@@ -48,10 +48,11 @@ export const Registry: React.FC<RegistryProps> = ({ lotes, correctedFiles, origi
   const getSeverity = (severity?: string) => {
     if (!severity) return severityData.info;
     const lower = severity.toLowerCase();
+    if (lower.includes('critical') || lower.includes('crítico') || lower.includes('critico')) return severityData.critical;
     if (lower.includes('high') || lower.includes('alto')) return severityData.high;
-    if (lower.includes('medium') || lower.includes('médio')) return severityData.medium;
-    if (lower.includes('critical') || lower.includes('crítico')) return severityData.critical;
-    return severityData.low; 
+    if (lower.includes('medium') || lower.includes('médio') || lower.includes('medio')) return severityData.medium;
+    if (lower.includes('low') || lower.includes('baixo')) return severityData.low;
+    return severityData.info;
   };
 
   // Calculate fix logs metrics
@@ -175,7 +176,7 @@ export const Registry: React.FC<RegistryProps> = ({ lotes, correctedFiles, origi
                       <Markdown>{
                         activeStep === "01" ? (selectedBatch.analysisMd || selectedBatch.description || "Sem análise.") :
                         activeStep === "02" ? (selectedBatch.planMd || "Sem plano estruturado. Proceda para planejamento.") :
-                        ((selectedBatch as any).executionMd || selectedBatch.planMd || "Ações concluídas do lote.")
+                        (selectedBatch.executionMd || selectedBatch.planMd || "Ações concluídas do lote.")
                       }</Markdown>
                     </div>
                   </div>
