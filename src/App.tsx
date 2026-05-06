@@ -153,6 +153,41 @@ function validatePhase4(data: any): data is Phase3ResponseJSON {
   );
 }
 
+/**
+ * Aplica uma lista de edições cirúrgicas a um arquivo original.
+ * Edições são aplicadas de baixo para cima (ordem decrescente de linha)
+ * para preservar a validade dos números de linha das edições superiores.
+ * Todos os números de linha são 1-indexados, baseados no arquivo ORIGINAL.
+ */
+function applyEdits(originalContent: string, edicoes: import('./types').Edicao[]): string {
+  if (!edicoes || edicoes.length === 0) return originalContent;
+  const lines = originalContent.split('\n');
+
+  // Ordena decrescente: INSERIR usa linhaInicio + 0.5 para cair entre SUBSTITUIR/REMOVER da mesma linha
+  const sorted = [...edicoes].sort((a, b) => {
+    const aPos = a.linhaInicio + (a.tipo === 'INSERIR' ? 0.5 : 0);
+    const bPos = b.linhaInicio + (b.tipo === 'INSERIR' ? 0.5 : 0);
+    return bPos - aPos;
+  });
+
+  for (const edit of sorted) {
+    const start = Math.max(0, edit.linhaInicio - 1); // 1-indexed → 0-indexed
+    if (edit.tipo === 'SUBSTITUIR') {
+      const end = Math.max(start, (edit.linhaFim ?? edit.linhaInicio) - 1);
+      const newLines = (edit.conteudoNovo ?? '').split('\n');
+      lines.splice(start, end - start + 1, ...newLines);
+    } else if (edit.tipo === 'REMOVER') {
+      const end = Math.max(start, (edit.linhaFim ?? edit.linhaInicio) - 1);
+      lines.splice(start, end - start + 1);
+    } else if (edit.tipo === 'INSERIR') {
+      const insertAt = edit.linhaInicio === 0 ? 0 : start + 1;
+      const newLines = (edit.conteudoNovo ?? '').split('\n');
+      lines.splice(insertAt, 0, ...newLines);
+    }
+  }
+  return lines.join('\n');
+}
+
 function normalizeSeverity(g: string): string {
   const lower = (g || '').toLowerCase();
   if (lower === 'cinza' || lower.includes('sem nexo') || lower.includes('irrelevant')) return 'cinza';
@@ -480,8 +515,8 @@ export default function App() {
   const parsePhase4Results = (text: string, docsSnapshot: Document[]) => {
     const data = extractJSON<Phase3ResponseJSON>(text);
     if (!data) {
-      const msg = 'ERRO Fase 4: JSON inválido — possível newline não escapado em conteúdo de arquivo. Tente novamente ou reduza a quantidade de lotes.';
-      console.error('[PHASE4] JSON inválido — possível newline não escapado em conteúdo de arquivo');
+      const msg = 'ERRO Fase 4: JSON inválido — verifique se o modelo retornou JSON com edicoes[]. Tente novamente ou reduza a quantidade de lotes.';
+      console.error('[PHASE4] JSON inválido');
       setIntegrityMessage(msg);
       setError(msg);
       return;
@@ -496,7 +531,7 @@ export default function App() {
 
     const originalMap = new Map(docsSnapshot.map(d => [d.name, d]));
 
-    // BUG 1 FIX: usa correctedFilesRef.current — garante estado atual sem closure stale
+    // Usa correctedFilesRef.current — garante estado atual sem closure stale
     const newCorrectedFiles = new Map<string, CorrectedFile>(
       correctedFilesRef.current.map(f => [f.name, f])
     );
@@ -504,16 +539,41 @@ export default function App() {
 
     for (const lote of data.lotes) {
       for (const arquivo of lote.arquivosModificados) {
-        if (!arquivo.path || !arquivo.conteudo) continue;
+        if (!arquivo.path) continue;
         const original = originalMap.get(arquivo.path);
-        const originalSize = original?.size || original?.content.length || 0;
-        const sizeChange = arquivo.conteudo.length - originalSize;
+
+        // Remoção total (DESCARTÁVEL / ÓRFÃO)
+        if (arquivo.removerArquivo) {
+          const originalSize = original?.size || original?.content.length || 0;
+          newCorrectedFiles.set(arquivo.path, {
+            name: arquivo.path, content: '',
+            sizeChange: -originalSize, originalSize, removed: true
+          });
+          modifiedPaths.add(arquivo.path);
+          console.log(`[PHASE4] Arquivo marcado para remoção: ${arquivo.path}`);
+          continue;
+        }
+
+        // Edição cirúrgica — aplica edicoes[] no arquivo original
+        if (!arquivo.edicoes || arquivo.edicoes.length === 0) {
+          console.warn(`[PHASE4] Sem edicoes para ${arquivo.path} — ignorado`);
+          continue;
+        }
+        if (!original) {
+          console.warn(`[PHASE4] Arquivo original não encontrado: ${arquivo.path}`);
+          continue;
+        }
+
+        const correctedContent = applyEdits(original.content, arquivo.edicoes);
+        const originalSize = original.size || original.content.length;
+        const sizeChange = correctedContent.length - originalSize;
         newCorrectedFiles.set(arquivo.path, {
-          name: arquivo.path, content: arquivo.conteudo,
+          name: arquivo.path, content: correctedContent,
           sizeChange, originalSize,
           tokensSaved: Math.abs(Math.floor(sizeChange / 4))
         });
         modifiedPaths.add(arquivo.path);
+        console.log(`[PHASE4] ${arquivo.path}: ${arquivo.edicoes.length} edição(ões) aplicada(s)`);
       }
     }
 
@@ -529,12 +589,17 @@ export default function App() {
 
       let linesRemoved = 0, sizeDelta = 0, tokensReduced = 0;
       for (const arquivo of execLote.arquivosModificados) {
+        const corrected = newCorrectedFiles.get(arquivo.path);
         const original = originalMap.get(arquivo.path);
-        if (original) {
-          linesRemoved += original.content.split('\n').length - arquivo.conteudo.split('\n').length;
-          const delta = arquivo.conteudo.length - original.content.length;
+        if (original && corrected && !corrected.removed) {
+          linesRemoved += original.content.split('\n').length - corrected.content.split('\n').length;
+          const delta = corrected.content.length - original.content.length;
           sizeDelta += delta;
           tokensReduced += Math.abs(Math.floor(delta / 4));
+        } else if (corrected?.removed && original) {
+          linesRemoved += original.content.split('\n').length;
+          sizeDelta += corrected.sizeChange;
+          tokensReduced += Math.abs(Math.floor(corrected.sizeChange / 4));
         }
       }
 
@@ -547,7 +612,7 @@ export default function App() {
       };
     }));
 
-    console.log(`[PHASE4] ${modifiedPaths.size} arquivo(s) modificados.`);
+    console.log(`[PHASE4] ${modifiedPaths.size} arquivo(s) processado(s) com edição cirúrgica.`);
   };
 
   // ─── ABORT ───────────────────────────────────────────────────────────────────
@@ -1767,11 +1832,12 @@ PROIBIDO texto fora do bloco JSON.`;
               <button
                 onClick={async () => {
                   const zip = new JSZip();
-                  const fixedMap = new Map(correctedFiles.map(f => [f.name, f.content]));
-                  // All uploaded documents: use fixed version if available, otherwise original
+                  const fixedMap = new Map(correctedFiles.map(f => [f.name, f]));
+                  // All uploaded documents: use fixed version if available, otherwise original; skip removed files
                   documents.forEach(doc => {
-                    const fixedContent = fixedMap.get(doc.name);
-                    zip.file(doc.name, fixedContent ?? doc.content);
+                    const fixedFile = fixedMap.get(doc.name);
+                    if (fixedFile?.removed) return;
+                    zip.file(doc.name, fixedFile?.content ?? doc.content);
                   });
                   const blob = await zip.generateAsync({ type: 'blob' });
                   const base = originalZipName ? `${originalZipName}_FIXED` : 'contextron_FIXED';
@@ -1788,7 +1854,7 @@ PROIBIDO texto fora do bloco JSON.`;
                 disabled={selectedDownloadFiles.size === 0}
                 onClick={async () => {
                   const zip = new JSZip();
-                  correctedFiles.filter(f => selectedDownloadFiles.has(f.name)).forEach(f => zip.file(f.name, f.content));
+                  correctedFiles.filter(f => selectedDownloadFiles.has(f.name) && !f.removed).forEach(f => zip.file(f.name, f.content));
                   const blob = await zip.generateAsync({ type: 'blob' });
                   const base = originalZipName ? `${originalZipName}_FIXED` : 'contextron_fixed';
                   saveAs(blob, `${base}_selecionados.zip`);
@@ -1803,7 +1869,7 @@ PROIBIDO texto fora do bloco JSON.`;
               <button
                 disabled={selectedDownloadFiles.size === 0}
                 onClick={() => {
-                  const files = correctedFiles.filter(f => selectedDownloadFiles.has(f.name));
+                  const files = correctedFiles.filter(f => selectedDownloadFiles.has(f.name) && !f.removed);
                   files.forEach(f => {
                     const blob = new Blob([f.content], { type: 'text/plain;charset=utf-8' });
                     saveAs(blob, f.name.split('/').pop() || f.name);

@@ -30,6 +30,7 @@ export interface CorrectedFile {
   sizeChange: number;
   originalSize: number;
   tokensSaved?: number;
+  removed?: boolean;
 }
 
 export interface Decision {
@@ -126,11 +127,19 @@ export interface Phase3DecisionResponseJSON {
   lotes: Phase3DecisionLoteJSON[];
 }
 
-// ─── PHASE 4 — EXECUTION (was Phase 3) ───────────────────────────────────────
+// ─── PHASE 4 — EXECUTION ─────────────────────────────────────────────────────
+
+export interface Edicao {
+  tipo: 'SUBSTITUIR' | 'INSERIR' | 'REMOVER';
+  linhaInicio: number;
+  linhaFim?: number;
+  conteudoNovo?: string;
+}
 
 export interface Phase3ArquivoModificadoJSON {
   path: string;
-  conteudo: string;
+  edicoes: Edicao[];
+  removerArquivo?: boolean;
 }
 
 export interface Phase3LoteJSON {
