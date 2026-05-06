@@ -1,0 +1,6 @@
+{
+  "name": "Mega Context Analyzer",
+  "description": "An immersive technical dashboard for context auditing and refactoring plans using Gemini 1.5 Pro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
