@@ -404,4 +404,5 @@ Gerar um sistema onde:
 5. Detecte e resolva conflitos.
 6. Organize as decisões respeitando a estrutura de lotes da Fase 2.
 7. Preencha os campos de validação (consistencia, temPendencias, temConflitos) e bloqueios.
-8. Gere o JSON final (seção FORMATO DE SAÍDA), sem texto extra.`;
+8. Gere o JSON final (seção FORMATO DE SAÍDA), sem texto extra.
+`;

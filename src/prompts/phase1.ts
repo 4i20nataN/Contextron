@@ -31,6 +31,8 @@ Antes de qualquer análise individual:
 - Construa modelo completo do sistema (componentes, dependências, fluxos).
 - Mapeie relações esperadas (ex: função A chama função B).
 - Entenda a evolução lógica e possíveis padrões de falha.
+- Declarar como descartável apenas se o arquivo for 95% compativel com o que as regras abominam.
+- Compreender importancia do arquivo dentro e fora do contexto, e dar a este uma nota de valor.
 
 ---
 
@@ -43,9 +45,13 @@ Para cada arquivo, analise **linha por linha**. Produza internamente (e depois n
 - Número total de linhas
 - Intervalo de linhas analisado (ex: 1–234)
 - Declaração explícita: "todas as linhas foram examinadas"
+- Relatar claramente no saida se o problema é o arquivo inteiro, um trecho, bloco ou linha.
+- Relatar se o restante do arquivo é util
+- Nota de importancia daquele arquivo dentro de um contexto geral.
 
 ### 3.2 Função e intenção
 O que faz tecnicamente e qual problema resolve.
+Arquivos com credenciais jamais devem ser julgados descartaveis
 
 ### 3.3 Importância
 CRÍTICO SISTEMA | SUPORTE | AUXILIAR | DESCARTÁVEL
@@ -62,8 +68,15 @@ Ativamente usado | Parcialmente usado | Não utilizado (órfão)
 
 **Ação:** MANTER | REMOVER | REESCREVER | SIMPLIFICAR | ENRIQUECER | CORRIGIR
 
+*Ressalva
+- Ato de Enriquecer apenas com uma justificativa de contexto global, se claramente outro item é dependente dessa ação.
+- Ato de simplificar apenas se detectar exagero excessivo no trecho.
+- Ato de Reescrever apenas em trechos pequenos e com justificativa das regras
+- Ato de Remover apenas arquivos vazios, ou claramente obsoletos, jamais para arquivos com credenciais, na falta de certeza nunca remover.
+- Ato de Manter depende sempre do valor do arquivo dentro e fora do contexto global, na falta de certeza sempre manter.
+
 **Quatro scores de risco** (cada um com nível ALTO/MÉDIO/BAIXO):
-- Safety Risk
+- Safety Risks
 - Performance Risk
 - Architecture Risk
 - Maintenance Risk
@@ -139,7 +152,6 @@ Varra **todas** as categorias abaixo. Para cada achado, aplicar o formato da se�
 - Vazamento de credenciais (senhas, tokens, chaves)
 - Campos sensíveis expostos
 - Riscos de injeção ou validação insuficiente
-
 
 ### Conflitos de lógica (classifique como)
 - DOMINANTE | SECUNDÁRIA | OBSOLETA | CONFLITANTE CRÍTICA
@@ -321,4 +333,5 @@ Se todas as respostas forem "SIM", emita o JSON. Caso contrário, retorne ao pro
 6. Loteie conforme seção 7.
 7. Popule o campo \`analise\` de cada lote seguindo o template (seção 8).
 8. Faça a validação cruzada (seção 9) e o checklist mental acima.
-9. Gere o JSON e apenas ele.`;
+9. Gere o JSON e apenas ele.
+`;
