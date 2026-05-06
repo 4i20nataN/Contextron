@@ -1680,7 +1680,11 @@ PROIBIDO texto fora do bloco JSON.`;
       {batchSelModal && (
         <BatchSelectionModal
           targetStep={batchSelModal}
-          batches={batches}
+          batches={batches.filter(b => {
+            if (batchSelModal === '03') return !!b.planMd;
+            if (batchSelModal === '04') return !!(b.decisions && b.decisions.length > 0) || !!b.decisionsMd;
+            return true;
+          })}
           onConfirm={(batchIds) => handleBatchSelectionConfirm(batchSelModal, batchIds)}
           onCancel={() => setBatchSelModal(null)}
         />
